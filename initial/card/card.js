@@ -46,7 +46,7 @@ export default function () {
       bin_range_length,
       is_on_ledger
     ) VALUES (
-      $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL, $13, $14, $15, $16, $17, $18, NULL, $19, $20, NULL, NULL, $21, $22
+      $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, '', $13, $14, $15, $16, $17, $18, NULL, $19, $20, NULL, NULL, $21, $22
     )
     ON CONFLICT (id) DO UPDATE SET
       created_at = EXCLUDED.created_at,
