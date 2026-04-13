@@ -1,0 +1,3 @@
+INSERT INTO public.card_metadata
+(created_at, updated_at, card_id, failed_pin_count, last_failed_pin_time, atc, iad, auth_id_counter, csu, previous_csu, current_issuer_script, previous_issuer_script)
+VALUES('2025-01-09 14:04:46.669747+00', '2026-04-13 05:59:12.106659+00', 'f9ed6e37-56bf-45e4-8f60-31b107a5b972'::uuid, 0, '2026-04-13 05:59:11.948255+00', 941, '', 14004, 'AAAAAA==', 'AAAAAA==', '', '');

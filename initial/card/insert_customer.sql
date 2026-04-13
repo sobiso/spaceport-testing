@@ -1,0 +1,3 @@
+INSERT INTO public.customers
+(id, created_at, updated_at, first_name, last_name, phone_number, email, language_code, post_code, city, country_iso, address_line1, address_line2, address_line3, external_ref)
+VALUES('aa2b42bd-0788-444e-ba57-b647f0a29be3'::uuid, '2025-01-09 13:58:03.980494+00', NULL, 'Dominik', 'Rabazynski', '+48123456789', 'dominik.rabazynski@clowd9.com', 'en-GB', 'EC2R 7DJ', 'London', 'GBR', 'Jana', 'Wana', '', '');
