@@ -3,7 +3,8 @@ import driver from "k6/x/sql/driver/postgres";
 import { check } from "k6";
 
 const namespace = __ENV.K6_NAMESPACE;
-const dbName = "module-card";
+// Must match ops-tools-shipyard ServiceDatabaseName("module-card") → module_card (not "module-card").
+const dbName = __ENV.K6_DB_NAME || "module_card";
 const dbDsn =
   __ENV.K6_DB_DSN ||
   `postgres://postgres:postgres@postgres.${namespace}.svc.cluster.local:5432/${dbName}?sslmode=disable`;
