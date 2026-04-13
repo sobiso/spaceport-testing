@@ -11,9 +11,18 @@ const serviceAddress =
 
 const client = new grpc.Client();
 
+// ReloadData runs DB clean + JSON import; 5s is too short in sandbox. Override with K6_RELOAD_DATA_TIMEOUT.
+const reloadDataTimeout = __ENV.K6_RELOAD_DATA_TIMEOUT || "30s";
+
+// Exactly one iteration for the whole run → a single ReloadData RPC (no load test).
 export const options = {
-  vus: 1,
-  iterations: 1,
+  scenarios: {
+    reload_data_once: {
+      executor: "shared-iterations",
+      vus: 1,
+      iterations: 1,
+    },
+  },
 };
 
 export default function () {
@@ -26,7 +35,7 @@ export default function () {
     const response = client.invoke(
       "moduletrafik.TrafikModuleService/ReloadData",
       {},
-      { timeout: "5s" }
+      { timeout: reloadDataTimeout }
     );
 
     check(response, {
