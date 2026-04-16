@@ -13,8 +13,8 @@
  *
  * Opcjonalnie: K6_AUTH_POST_BODY — JSON body dla POST /v1/auth (domyślnie "{}").
  *
- * HTML summary: ścieżka z env K6_SUMMARY_HTML (ustawiana przez Spaceport, zwykle /tmp/k6-sandbox-<skrypt>.html),
- * bo katalog repozytorium w podzie może być tylko do odczytu.
+ * HTML summary: K6_SUMMARY_HTML (Spaceport: k6 run -e K6_SUMMARY_HTML=/tmp/k6-sandbox-<skrypt>.html),
+ * bo katalog repo w podzie bywa tylko do odczytu — zapis musi iść w /tmp.
  */
 import http from "k6/http";
 import { check } from "k6";
