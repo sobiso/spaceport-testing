@@ -1,8 +1,8 @@
 /**
- * basic_api_checks: GET /healthz + POST /v1/auth (ten sam host co API klienta).
+ * basic_api_checks: GET /healthz + POST /v1/auth (same host as the client API).
  *
  * Spaceport sets on the k6 Job:
- *   K6_NAMESPACE          — sandbox namespace (e.g. sbx-stellar-probe)
+ *   K6_NAMESPACE            — sandbox namespace (e.g. sbx-stellar-probe)
  *   K6_PUBLIC_DOMAIN_SUFFIX — e.g. dev.apps-clowd9.io (SANDBOX_ROUTING_PUBLIC_DOMAIN_SUFFIX)
  *
  * Default URL matches Istio/Ingress routing in ops-tools-spaceport (external-client, hostPrefix "api"):
@@ -11,10 +11,10 @@
  * UAT fixed host (no namespace in hostname), e.g.:
  *   K6_CLIENT_API_HEALTH_URL=https://client.api.uat.apps-clowd9.io/healthz
  *
- * Opcjonalnie: K6_AUTH_POST_BODY — JSON body dla POST /v1/auth (domyślnie "{}").
+ * Optional: K6_AUTH_POST_BODY — JSON body for POST /v1/auth (default "{}").
  *
- * HTML summary: K6_SUMMARY_HTML (Spaceport: k6 run -e K6_SUMMARY_HTML=/tmp/k6-sandbox-<skrypt>.html),
- * bo katalog repo w podzie bywa tylko do odczytu — zapis musi iść w /tmp.
+ * HTML summary: K6_SUMMARY_HTML (Spaceport: k6 run -e K6_SUMMARY_HTML=/tmp/k6-sandbox-<script>.html)
+ * because the cloned repo in the pod is often read-only — summary must be written under /tmp.
  */
 import http from "k6/http";
 import { check } from "k6";
@@ -33,7 +33,7 @@ function healthUrl() {
   return `https://api-${namespace}.${domainSuffix}/healthz`;
 }
 
-/** Bazowy origin API (bez /healthz) — pod /v1/auth itd. */
+/** API origin without /healthz — used for /v1/auth etc. */
 function baseApiUrl() {
   var h = healthUrl();
   var suf = "/healthz";
@@ -71,9 +71,9 @@ export default function () {
     headers: { "Content-Type": "application/json" },
     tags: { name: "client_auth_v1" },
   });
-  // Oczekiwany kod zależy od środowiska (np. 401 bez poprawnych danych) — brak błędu serwera 5xx.
+  // Expected status depends on the environment (e.g. 401 without valid credentials); must not be a 5xx server error.
   check(resAuth, {
-    "POST /v1/auth — brak błędu serwera (status < 500)": (r) =>
+    "POST /v1/auth — no server error (status < 500)": (r) =>
       r.status >= 200 && r.status < 500,
   });
 }
@@ -92,7 +92,7 @@ export function handleSummary(data) {
   collectChecks(data.root_group, checks);
 
   var headerRows =
-    "<tr><th>Nazwa testu</th><th>Wynik</th><th>Wykonano (UTC)</th></tr>";
+    "<tr><th>Test name</th><th>Result</th><th>Run at (UTC)</th></tr>";
   var bodyRows = checks
     .map(function (c) {
       var name = c.name || c.path || "(check)";
@@ -104,17 +104,17 @@ export function handleSummary(data) {
           pass = true;
         }
       }
-      var wynik = pass ? "OK" : "FAILED";
-      var wynikClass = pass ? "ok" : "fail";
+      var result = pass ? "OK" : "FAILED";
+      var resultClass = pass ? "ok" : "fail";
       return (
         "<tr>" +
         '<td class="name">' +
         escapeHtml(name) +
         "</td>" +
         '<td class="' +
-        wynikClass +
+        resultClass +
         '">' +
-        escapeHtml(wynik) +
+        escapeHtml(result) +
         "</td>" +
         '<td class="time">' +
         escapeHtml(finishedAt) +
@@ -126,11 +126,11 @@ export function handleSummary(data) {
 
   if (checks.length === 0) {
     bodyRows =
-      '<tr><td colspan="3" class="muted">Brak wpisów checków (root_group).</td></tr>';
+      '<tr><td colspan="3" class="muted">No check entries (root_group).</td></tr>';
   }
 
   const html = `<!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
