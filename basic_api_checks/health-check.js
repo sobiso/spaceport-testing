@@ -1,5 +1,5 @@
 /**
- * Single GET to external-client HTTP /healthz.
+ * basic_api_checks: GET /healthz + POST /v1/auth (ten sam host co API klienta).
  *
  * Spaceport sets on the k6 Job:
  *   K6_NAMESPACE          — sandbox namespace (e.g. sbx-stellar-probe)
@@ -11,7 +11,9 @@
  * UAT fixed host (no namespace in hostname), e.g.:
  *   K6_CLIENT_API_HEALTH_URL=https://client.api.uat.apps-clowd9.io/healthz
  *
- * HTML summary is written as health-check-report.html when k6 runs.
+ * Opcjonalnie: K6_AUTH_POST_BODY — JSON body dla POST /v1/auth (domyślnie "{}").
+ *
+ * HTML summary: health-check-report.html — tabela checków (bez pełnego logu / JSON k6).
  */
 import http from "k6/http";
 import { check } from "k6";
@@ -27,11 +29,22 @@ function healthUrl() {
   if (override) {
     return override.replace(/\/$/, "");
   }
-  // Per-namespace public host: api-<namespace>.<suffix> (see deployment_sandbox_routing.go)
   return `https://api-${namespace}.${domainSuffix}/healthz`;
 }
 
+/** Bazowy origin API (bez /healthz) — pod /v1/auth itd. */
+function baseApiUrl() {
+  var h = healthUrl();
+  var suf = "/healthz";
+  if (h.length >= suf.length && h.substring(h.length - suf.length) === suf) {
+    return h.slice(0, -suf.length);
+  }
+  return h.replace(/\/healthz\/?$/i, "");
+}
+
 const url = healthUrl();
+const authUrl = baseApiUrl() + "/v1/auth";
+const authBody = (__ENV.K6_AUTH_POST_BODY || "{}").trim();
 
 export const options = {
   scenarios: {
@@ -44,12 +57,23 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get(url, {
+  const resHealth = http.get(url, {
     timeout: "30s",
     tags: { name: "client_healthz" },
   });
-  check(res, {
+  check(resHealth, {
     "healthz status 200": (r) => r.status === 200,
+  });
+
+  const resAuth = http.post(authUrl, authBody, {
+    timeout: "30s",
+    headers: { "Content-Type": "application/json" },
+    tags: { name: "client_auth_v1" },
+  });
+  // Oczekiwany kod zależy od środowiska (np. 401 bez poprawnych danych) — brak błędu serwera 5xx.
+  check(resAuth, {
+    "POST /v1/auth — brak błędu serwera (status < 500)": (r) =>
+      r.status >= 200 && r.status < 500,
   });
 }
 
@@ -62,63 +86,99 @@ function escapeHtml(s) {
 }
 
 export function handleSummary(data) {
-  const metrics = data.metrics || {};
-  const reqs = metrics.http_reqs;
-  const failed = metrics.http_req_failed;
-  const duration = metrics.http_req_duration;
+  const finishedAt = new Date().toISOString();
+  const checks = [];
+  collectChecks(data.root_group, checks);
 
-  var avgMs = "—";
-  if (
-    duration &&
-    duration.values &&
-    typeof duration.values.avg === "number"
-  ) {
-    avgMs = duration.values.avg.toFixed(2);
-  }
-
-  const rows = [
-    ["Target URL", url],
-    ["K6_NAMESPACE", namespace],
-    ["K6_PUBLIC_DOMAIN_SUFFIX", domainSuffix],
-    ["HTTP requests (count)", reqs != null ? reqs.values.count : "—"],
-    ["HTTP failed (rate)", failed != null ? failed.values.rate : "—"],
-    ["Duration (avg ms)", avgMs],
-  ];
-
-  const table = rows
-    .map(
-      ([k, v]) =>
-        `<tr><th style="text-align:left;padding:4px 12px 4px 0">${escapeHtml(
-          k
-        )}</th><td style="font-family:monospace">${escapeHtml(
-          String(v)
-        )}</td></tr>`
-    )
+  var headerRows =
+    "<tr><th>Nazwa testu</th><th>Wynik</th><th>Wykonano (UTC)</th></tr>";
+  var bodyRows = checks
+    .map(function (c) {
+      var name = c.name || c.path || "(check)";
+      var pass = false;
+      if (typeof c.passes === "number" && typeof c.fails === "number") {
+        if (c.fails > 0) {
+          pass = false;
+        } else if (c.passes > 0) {
+          pass = true;
+        }
+      }
+      var wynik = pass ? "OK" : "FAILED";
+      var wynikClass = pass ? "ok" : "fail";
+      return (
+        "<tr>" +
+        '<td class="name">' +
+        escapeHtml(name) +
+        "</td>" +
+        '<td class="' +
+        wynikClass +
+        '">' +
+        escapeHtml(wynik) +
+        "</td>" +
+        '<td class="time">' +
+        escapeHtml(finishedAt) +
+        "</td>" +
+        "</tr>"
+      );
+    })
     .join("");
 
+  if (checks.length === 0) {
+    bodyRows =
+      '<tr><td colspan="3" class="muted">Brak wpisów checków (root_group).</td></tr>';
+  }
+
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>basic_api_checks — health-check</title>
   <style>
     body { font-family: system-ui, Segoe UI, Roboto, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 1.5rem; line-height: 1.45; }
-    h1 { font-size: 1.1rem; color: #34d399; margin: 0 0 1rem; }
-    table { border-collapse: collapse; }
-    th { color: #94a3b8; font-weight: 600; }
-    pre { background: #1e293b; padding: 1rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; }
+    h1 { font-size: 1.1rem; color: #34d399; margin: 0 0 0.75rem; }
+    .meta { color: #94a3b8; font-size: 0.8rem; margin-bottom: 1rem; word-break: break-all; }
+    table { border-collapse: collapse; width: 100%; max-width: 720px; }
+    th, td { border: 1px solid #334155; padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: #1e293b; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    td.name { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    td.ok { color: #4ade80; font-weight: 600; }
+    td.fail { color: #f87171; font-weight: 600; }
+    td.time { font-family: ui-monospace, monospace; font-size: 0.8rem; color: #cbd5e1; }
+    td.muted { color: #64748b; font-style: italic; }
   </style>
 </head>
 <body>
-  <h1>health-check (k6)</h1>
-  <table>${table}</table>
-  <h2 style="margin-top:1.25rem;font-size:0.95rem;color:#94a3b8">Raw metrics (JSON)</h2>
-  <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+  <h1>health-check</h1>
+  <p class="meta">GET: ${escapeHtml(url)}<br/>POST: ${escapeHtml(
+    authUrl
+  )}</p>
+  <table>
+    <thead>${headerRows}</thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
 </body>
 </html>`;
 
   return {
     "health-check-report.html": html,
   };
+}
+
+function collectChecks(group, acc) {
+  if (!group) {
+    return;
+  }
+  var list = group.checks;
+  if (list && list.length) {
+    for (var i = 0; i < list.length; i++) {
+      acc.push(list[i]);
+    }
+  }
+  var nested = group.groups;
+  if (nested && nested.length) {
+    for (var j = 0; j < nested.length; j++) {
+      collectChecks(nested[j], acc);
+    }
+  }
 }
