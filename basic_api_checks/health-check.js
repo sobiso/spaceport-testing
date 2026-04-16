@@ -13,7 +13,8 @@
  *
  * Opcjonalnie: K6_AUTH_POST_BODY — JSON body dla POST /v1/auth (domyślnie "{}").
  *
- * HTML summary: health-check-report.html — tabela checków (bez pełnego logu / JSON k6).
+ * HTML summary: ścieżka z env K6_SUMMARY_HTML (ustawiana przez Spaceport, zwykle /tmp/k6-sandbox-<skrypt>.html),
+ * bo katalog repozytorium w podzie może być tylko do odczytu.
  */
 import http from "k6/http";
 import { check } from "k6";
@@ -160,9 +161,13 @@ export function handleSummary(data) {
 </body>
 </html>`;
 
-  return {
-    "health-check-report.html": html,
-  };
+  var summaryPath = (__ENV.K6_SUMMARY_HTML || "").trim();
+  if (!summaryPath) {
+    summaryPath = "/tmp/k6-sandbox-health-check.html";
+  }
+  var out = {};
+  out[summaryPath] = html;
+  return out;
 }
 
 function collectChecks(group, acc) {
