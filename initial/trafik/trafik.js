@@ -1,5 +1,6 @@
 import grpc from "k6/net/grpc";
 import { check } from "k6";
+import { htmlSummary } from "../../helpers/html-summary.js";
 
 // Shipyard sets K6_NAMESPACE on the k6-initial-runner job; local runs can use default or override.
 const namespace = __ENV.K6_NAMESPACE || "default";
@@ -54,4 +55,16 @@ export default function () {
   } finally {
     client.close();
   }
+}
+
+export function handleSummary(data) {
+  return htmlSummary(data, {
+    title: "initial - trafik ReloadData",
+    heading: "trafik",
+    defaultPath: "/tmp/k6-sandbox-trafik.html",
+    metadata: [
+      ["Namespace", namespace],
+      ["gRPC", serviceAddress],
+    ],
+  });
 }

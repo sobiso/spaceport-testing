@@ -1,6 +1,7 @@
 import sql from "k6/x/sql";
 import driver from "k6/x/sql/driver/postgres";
 import { check } from "k6";
+import { htmlSummary } from "../../helpers/html-summary.js";
 
 const namespace = __ENV.K6_NAMESPACE;
 // Must match ops-tools-shipyard ServiceDatabaseName("module-card") → module_card (not "module-card").
@@ -88,6 +89,18 @@ export default function () {
   console.log(
     `seed done in namespace=${namespace}, db=${dbName}, products=${upsertProduct.rowsAffected()}, customers=${upsertCustomer.rowsAffected()}, cards=${upsertCard.rowsAffected()}, card_metadata=${upsertCardMeta.rowsAffected()}`
   );
+}
+
+export function handleSummary(data) {
+  return htmlSummary(data, {
+    title: "initial - card seed",
+    heading: "card",
+    defaultPath: "/tmp/k6-sandbox-card.html",
+    metadata: [
+      ["Namespace", namespace],
+      ["Database", dbName],
+    ],
+  });
 }
 
 export function teardown() {

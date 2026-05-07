@@ -1,6 +1,7 @@
 import sql from "k6/x/sql";
 import driver from "k6/x/sql/driver/postgres";
 import { check } from "k6";
+import { htmlSummary } from "../../helpers/html-summary.js";
 
 const namespace = __ENV.K6_NAMESPACE;
 // Must match ops-tools-shipyard ServiceDatabaseName("module-exa") → module_exa (not "module-exa").
@@ -57,6 +58,18 @@ export default function () {
   console.log(
     `seed done in namespace=${namespace}, db=${dbName}, endpoints=${upsertEndpoint.rowsAffected()}`
   );
+}
+
+export function handleSummary(data) {
+  return htmlSummary(data, {
+    title: "initial - exa seed",
+    heading: "exa",
+    defaultPath: "/tmp/k6-sandbox-exa.html",
+    metadata: [
+      ["Namespace", namespace],
+      ["Database", dbName],
+    ],
+  });
 }
 
 export function teardown() {
